@@ -65,6 +65,8 @@ const Index = () => {
         Uses flex-1 to occupy all remaining vertical space.
         pb-14 adds padding at the bottom so the Fixed Footer doesn't overlap the 3D model's feet.
       */}
+      <ConfigPanel focusPart={focusPart} onFocusPartChange={setFocusPart} />
+      
       <section className="relative flex-1 w-full bg-accent/10 pb-14">
         <ConfiguratorScene focusPart={focusPart} resetKey={cameraResetKey} />
       </section>
@@ -73,7 +75,6 @@ const Index = () => {
         The component itself contains 'fixed bottom-0', 
         so it will overlay perfectly at the bottom.
       */}
-      <ConfigPanel focusPart={focusPart} onFocusPartChange={setFocusPart} />
     </main>
   );
 };
