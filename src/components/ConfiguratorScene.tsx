@@ -1,619 +1,351 @@
-import { ReactNode, useMemo, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows, Environment } from "@react-three/drei";
+import { 
+  OrbitControls, 
+  ContactShadows, 
+  Environment, 
+  RoundedBox, 
+} from "@react-three/drei";
+import * as THREE from "three";
 import { useConfigStore } from "@/store/configStore";
 
-// Debug flag for targeted Zustand + scene diagnostics (set to true when investigating loops)
-const DEBUG_CONFIG = false;
+// --- Constants & Types ---
+const TABLE_HEIGHT = 0.76; 
+const SEAT_HEIGHT = 0.46;
 
-function logDebug(tag: string, payload: unknown) {
-  if (DEBUG_CONFIG) {
-    // eslint-disable-next-line no-console
-    console.log(`[ConfiguratorScene:${tag}]`, payload);
-  }
-}
+export type FocusPart = "table-design" | "size" | "tabletop" | "legs" | "finish" | "chairs" | "structural" | "scene" | null;
 
-// External FocusPart type so the rest of the app compiles
-export type FocusPart = "table-design" | "size" | "tabletop" | "legs" | "finish" | "chairs" | "scene" | null;
-
-// The scene reads from the Zustand store ONLY (no writes) using
-// small, memoized selectors to avoid unnecessary renders.
-
-const TABLE_HEIGHT = 0.75;
+// --- Helper Hooks ---
 
 function useTableDimensions() {
   const sizePreset = useConfigStore((s) => s.sizePreset);
-
   return useMemo(() => {
-    const dims =
-      sizePreset === "4_seater"
-        ? { length: 1.4, width: 0.8, thickness: 0.06, legInset: 0.12 }
-        : sizePreset === "6_seater"
-          ? { length: 1.8, width: 0.9, thickness: 0.07, legInset: 0.14 }
-          : { length: 2.2, width: 1.0, thickness: 0.08, legInset: 0.16 };
-
-    logDebug("useTableDimensions", { sizePreset, dims });
-    return dims;
+    if (sizePreset === "4_seater") return { length: 1.4, width: 0.9, thickness: 0.04, legInset: 0.15 };
+    if (sizePreset === "6_seater") return { length: 2.0, width: 1.0, thickness: 0.05, legInset: 0.25 };
+    return { length: 2.6, width: 1.1, thickness: 0.05, legInset: 0.35 }; 
   }, [sizePreset]);
 }
 
-function useMarbleMaterialProps() {
-  const marbleMaterial = useConfigStore((s) => s.marbleMaterial);
+function useMaterials() {
+  const { marbleMaterial, woodMaterial, leather } = useConfigStore((s) => s);
 
-  return useMemo(() => {
-    let base = { colorHex: "#f5f5f5", roughness: 0.25, metalness: 0.05 };
-
-    switch (marbleMaterial.color) {
-      case "white_carrara":
-        base = { colorHex: "#f5f5f5", roughness: 0.25, metalness: 0.05 };
-        break;
-      case "beige_cream":
-        base = { colorHex: "#e3d3c4", roughness: 0.3, metalness: 0.04 };
-        break;
-      case "grey_veined":
-        base = { colorHex: "#b0b0b5", roughness: 0.28, metalness: 0.05 };
-        break;
-      case "black_marble":
-        base = { colorHex: "#26262b", roughness: 0.22, metalness: 0.06 };
-        break;
-      case "green_exotic":
-      default:
-        base = { colorHex: "#2f3f36", roughness: 0.27, metalness: 0.05 };
-        break;
-    }
-
-    const finishOffset =
-      marbleMaterial.finish === "polished" ? -0.08 : marbleMaterial.finish === "honed" ? 0.08 : 0.12;
-
-    const material = {
-      colorHex: base.colorHex,
-      roughness: Math.min(1, Math.max(0, base.roughness + finishOffset)),
-      metalness: base.metalness,
+  const marble = useMemo(() => {
+    const colors: Record<string, string> = {
+      white_carrara: "#f2f2f2",
+      beige_cream: "#eaddcf",
+      grey_veined: "#b3b3b3",
+      black_marble: "#1a1a1a",
+      green_exotic: "#2e3b32",
     };
-
-    logDebug("useMarbleMaterialProps", { marbleMaterial, material });
-    return material;
-  }, [marbleMaterial.color, marbleMaterial.finish]);
-}
-
-function useWoodMaterialProps() {
-  const woodMaterial = useConfigStore((s) => s.woodMaterial);
-
-  return useMemo(() => {
-    let base = { colorHex: "#c89b62", roughness: 0.5 };
-
-    switch (woodMaterial.color) {
-      case "natural":
-        base = { colorHex: "#c89b62", roughness: 0.5 };
-        break;
-      case "walnut_dark":
-        base = { colorHex: "#5a3a22", roughness: 0.48 };
-        break;
-      case "oak_light":
-        base = { colorHex: "#ddba80", roughness: 0.52 };
-        break;
-      case "espresso":
-        base = { colorHex: "#2c1b16", roughness: 0.46 };
-        break;
-      case "charcoal":
-      default:
-        base = { colorHex: "#282828", roughness: 0.48 };
-        break;
-    }
-
-    const sheenOffset = woodMaterial.finish === "matte" ? 0.08 : woodMaterial.finish === "semi_gloss" ? -0.12 : -0.04;
-
+    const isPolished = marbleMaterial.finish === "polished";
     return {
-      colorHex: base.colorHex,
-      roughness: Math.min(1, Math.max(0.25, base.roughness + sheenOffset)),
-      metalness: 0.18,
+      color: colors[marbleMaterial.color] || "#e8e8e8",
+      roughness: isPolished ? 0.05 : 0.35,
+      metalness: 0.1,
+      envMapIntensity: isPolished ? 1.2 : 0.6,
     };
-  }, [woodMaterial.color, woodMaterial.finish]);
-}
+  }, [marbleMaterial]);
 
-function useLeatherMaterialProps() {
-  const leather = useConfigStore((s) => s.leather);
-
-  return useMemo(() => {
-    let colorHex = "#c19a6b";
-
-    switch (leather.color) {
-      case "black":
-        colorHex = "#111111";
-        break;
-      case "tan":
-        colorHex = "#c19a6b";
-        break;
-      case "brown":
-        colorHex = "#4b2e2a";
-        break;
-      case "grey":
-        colorHex = "#555555";
-        break;
-      case "white":
-        colorHex = "#f5f5f5";
-        break;
-      case "olive":
-      default:
-        colorHex = "#4b5b3b";
-        break;
-    }
-
-    const roughnessBase =
-      leather.finish === "smooth" ? 0.55 : leather.finish === "grained" ? 0.7 : 0.8;
-
-    const material = {
-      colorHex,
-      roughness: roughnessBase,
-      metalness: 0.04,
+  const wood = useMemo(() => {
+    const colors: Record<string, string> = {
+      natural: "#dcb27e",
+      walnut_dark: "#5c4033",
+      oak_light: "#e0cda7",
+      espresso: "#2b1d16",
+      charcoal: "#2f2f2f",
     };
+    return {
+      color: colors[woodMaterial.color] || "#dcb27e",
+      roughness: woodMaterial.finish === "matte" ? 0.8 : 0.3,
+      metalness: 0.0,
+      envMapIntensity: 0.5,
+    };
+  }, [woodMaterial]);
 
-    logDebug("useLeatherMaterialProps", { leather, material });
-    return material;
-  }, [leather.color, leather.finish]);
+  const leatherProps = useMemo(() => {
+    const colors: Record<string, string> = {
+      black: "#111",
+      tan: "#b07b48",
+      brown: "#5d3a29",
+      grey: "#5e6369",
+      white: "#f0f0f0",
+      olive: "#555d40",
+    };
+    return {
+      color: colors[leather.color] || "#111",
+      roughness: leather.finish === "smooth" ? 0.45 : 0.85,
+      metalness: 0.05,
+      envMapIntensity: 0.6,
+    };
+  }, [leather]);
+
+  return { marble, wood, leather: leatherProps };
 }
 
-function useSceneProps() {
-  const scene = useConfigStore((s) => s.scene);
-
-  return useMemo(() => {
-    const isWarm = scene.lightingMood === "warm_indoor";
-
-    const props = {
-      backgroundColor: scene.background === "studio" ? "#f4f3f7" : "#f0ece5",
-      ambientIntensity: isWarm ? 0.55 : 0.6,
-      directionalIntensity: isWarm ? 0.95 : 1.05,
-      shadowOpacity: scene.shadowIntensity === "low" ? 0.22 : 0.32,
-      cameraHeightOffset: isWarm ? 0.08 : 0,
-    } as const;
-
-    logDebug("useSceneProps", { scene, props });
-    return props;
-  }, [scene.lightingMood, scene.background, scene.shadowIntensity]);
-}
-
-function StaticMaterial({ color, roughness, metalness }: { color: string; roughness: number; metalness: number }) {
-  return <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} />;
-}
+// --- Components ---
 
 function TableTop() {
-  const marbleShape = useConfigStore((s) => s.marbleShape);
+  const { marbleShape } = useConfigStore((s) => s);
   const { length, width, thickness } = useTableDimensions();
-  const marble = useMarbleMaterialProps();
+  const { marble } = useMaterials();
 
-  const cornerRadiusFactor =
-    marbleShape.cornerRadius === "high" ? 0.18 : marbleShape.cornerRadius === "medium" ? 0.12 : 0.06;
-
-  const overhangExtra = marbleShape.overhangDepth === "extended" ? 0.08 : 0;
-
-  const l = length + overhangExtra;
-  const w = width + overhangExtra * 0.6;
-
-  // For now we approximate shapes using basic primitives:
-  // - oval -> cylinder
-  // - others -> box, with radius hint only in dimensions
-
-  if (marbleShape.shape === "oval") {
-    return (
-      <mesh position={[0, TABLE_HEIGHT, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[w / 2, w / 2, thickness, 64]} />
-        <StaticMaterial color={marble.colorHex} roughness={marble.roughness} metalness={marble.metalness} />
-      </mesh>
-    );
-  }
-
-  // "rounded" styles just slightly expand dimensions to imply softer corners.
-  const lengthWithRadius = l + cornerRadiusFactor * 0.1;
-  const widthWithRadius = w + cornerRadiusFactor * 0.1;
+  const radius = useMemo(() => {
+    if (marbleShape.shape === "oval") return width / 2;
+    if (marbleShape.shape === "rounded_rectangle") return 0.15;
+    if (marbleShape.shape === "soft_organic") return 0.3; 
+    return 0.01; 
+  }, [marbleShape.shape, width]);
 
   return (
-    <mesh position={[0, TABLE_HEIGHT, 0]} castShadow receiveShadow>
-      <boxGeometry args={[lengthWithRadius, thickness, widthWithRadius]} />
-      <StaticMaterial color={marble.colorHex} roughness={marble.roughness} metalness={marble.metalness} />
-    </mesh>
+    <group position={[0, TABLE_HEIGHT - thickness / 2, 0]}>
+      <RoundedBox args={[length, thickness, width]} radius={radius} smoothness={4} castShadow receiveShadow>
+        <meshStandardMaterial {...marble} />
+      </RoundedBox>
+    </group>
   );
 }
 
-function TableBase() {
-  const { length, width, thickness, legInset } = useTableDimensions();
-  const wood = useWoodMaterialProps();
-  const structural = useConfigStore((s) => s.structural);
+function TableLegs() {
+  const { length, width, legInset } = useTableDimensions();
+  const { wood } = useMaterials();
+  const { structural, tableDesign } = useConfigStore((s) => s);
 
-  // Slightly slimmer legs with more refined proportions
-  const legThickness = 0.07;
-  const legHeight = TABLE_HEIGHT - thickness; // let the top visually sit on the legs
-
+  const legH = TABLE_HEIGHT - 0.04; 
+  const legW = structural.legThickness === "slim" ? 0.05 : structural.legThickness === "thick" ? 0.12 : 0.08;
   const x = length / 2 - legInset;
   const z = width / 2 - legInset;
 
-  const legPositions: [number, number, number][] = [
-    [-x, legHeight / 2, -z],
-    [x, legHeight / 2, -z],
-    [-x, legHeight / 2, z],
-    [x, legHeight / 2, z],
-  ];
+  if (tableDesign.style === "modern_slab_leg") {
+    return (
+      <group>
+        {[-1, 1].map((dir) => (
+           <RoundedBox key={dir} args={[0.08, legH, width * 0.7]} radius={0.01} position={[dir * (length / 2 - 0.3), legH / 2, 0]} castShadow receiveShadow>
+             <meshStandardMaterial {...wood} />
+           </RoundedBox>
+        ))}
+        <RoundedBox args={[length - 0.6, 0.1, 0.05]} radius={0.01} position={[0, legH - 0.1, 0]} castShadow>
+             <meshStandardMaterial {...wood} />
+        </RoundedBox>
+      </group>
+    )
+  }
 
-  const apronHeight = thickness * 0.6;
-  const apronYOffset = TABLE_HEIGHT - thickness - apronHeight / 2;
-
-  const useMetal = structural.footCapMaterial === "metal";
-  const metalMaterial = {
-    colorHex: "#a3a7af",
-    roughness: 0.3,
-    metalness: 0.85,
-  };
-
-  const stretcherMaterial = useMetal ? metalMaterial : wood;
-
-  const showStraightStretcher = structural.stretcherStyle === "straight";
-  const showCrossStretcher = structural.stretcherStyle === "cross";
-
-  const stretcherY = legHeight * 0.35;
+  if (tableDesign.style === "cross_trestle") {
+     const angle = Math.PI / 6;
+     return (
+        <group>
+            {[-1, 1].map((side) => (
+                <group key={side} position={[side * (length/2 - 0.35), 0, 0]}>
+                    <mesh rotation={[angle, 0, 0]} position={[0, legH/2, 0]} castShadow>
+                        <boxGeometry args={[legW, legH * 1.1, legW]} />
+                        <meshStandardMaterial {...wood} />
+                    </mesh>
+                    <mesh rotation={[-angle, 0, 0]} position={[0, legH/2, 0]} castShadow>
+                        <boxGeometry args={[legW, legH * 1.1, legW]} />
+                        <meshStandardMaterial {...wood} />
+                    </mesh>
+                </group>
+            ))}
+             <RoundedBox args={[length * 0.7, 0.05, 0.05]} position={[0, legH * 0.4, 0]} castShadow>
+                 <meshStandardMaterial {...wood} />
+             </RoundedBox>
+        </group>
+     )
+  }
 
   return (
     <group>
-      {/* Corner legs with optional metal foot caps */}
-      {legPositions.map((pos, idx) => (
-        <group key={idx} position={pos} castShadow receiveShadow>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[legThickness, legHeight, legThickness]} />
-            <StaticMaterial
-              color={wood.colorHex}
-              roughness={wood.roughness}
-              metalness={wood.metalness}
-            />
-          </mesh>
-
-          {useMetal && (
-            <mesh position={[0, -legHeight / 2 + 0.015, 0]} castShadow receiveShadow>
-              <cylinderGeometry args={[legThickness * 0.7, legThickness * 0.7, 0.03, 24]} />
-              <StaticMaterial
-                color={metalMaterial.colorHex}
-                roughness={metalMaterial.roughness}
-                metalness={metalMaterial.metalness}
-              />
+      {[[-x, -z], [x, -z], [-x, z], [x, z]].map(([px, pz], i) => (
+        <group key={i} position={[px, legH / 2, pz]}>
+          <RoundedBox args={[legW, legH, legW]} radius={structural.legThickness === "thick" ? 0.04 : 0.01} smoothness={4} castShadow receiveShadow>
+            <meshStandardMaterial {...wood} />
+          </RoundedBox>
+          {structural.footCapMaterial === "metal" && (
+            <mesh position={[0, -legH/2 + 0.02, 0]}>
+                <cylinderGeometry args={[legW * 0.55, legW * 0.55, 0.04, 32]} />
+                <meshStandardMaterial color="#888" metalness={0.9} roughness={0.2} />
             </mesh>
           )}
         </group>
       ))}
-
-      {/* Long aprons */}
-      <mesh position={[0, apronYOffset, -z]} castShadow receiveShadow>
-        <boxGeometry args={[length - legInset * 1.6, apronHeight, legThickness * 0.7]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
-      <mesh position={[0, apronYOffset, z]} castShadow receiveShadow>
-        <boxGeometry args={[length - legInset * 1.6, apronHeight, legThickness * 0.7]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
-
-      {/* Optional stretcher bars for a more grounded, premium base */}
-      {showStraightStretcher && (
-        <mesh position={[0, stretcherY, 0]} castShadow receiveShadow>
-          <boxGeometry args={[length - legInset * 1.8, legThickness * 0.45, legThickness * 0.9]} />
-          <StaticMaterial
-            color={stretcherMaterial.colorHex}
-            roughness={stretcherMaterial.roughness}
-            metalness={stretcherMaterial.metalness}
-          />
-        </mesh>
-      )}
-
-      {showCrossStretcher && (
-        <group position={[0, stretcherY, 0]} castShadow receiveShadow>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[length - legInset * 1.8, legThickness * 0.45, legThickness * 0.7]} />
-            <StaticMaterial
-              color={stretcherMaterial.colorHex}
-              roughness={stretcherMaterial.roughness}
-              metalness={stretcherMaterial.metalness}
-            />
-          </mesh>
-          <mesh rotation={[0, Math.PI / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[width - legInset * 1.8, legThickness * 0.45, legThickness * 0.7]} />
-            <StaticMaterial
-              color={stretcherMaterial.colorHex}
-              roughness={stretcherMaterial.roughness}
-              metalness={stretcherMaterial.metalness}
-            />
-          </mesh>
-        </group>
-      )}
+      <group position={[0, legH - 0.06, 0]}>
+         <mesh position={[0, 0, z]} castShadow>
+             <boxGeometry args={[length - legInset, 0.08, 0.02]} />
+             <meshStandardMaterial {...wood} />
+         </mesh>
+         <mesh position={[0, 0, -z]} castShadow>
+             <boxGeometry args={[length - legInset, 0.08, 0.02]} />
+             <meshStandardMaterial {...wood} />
+         </mesh>
+      </group>
     </group>
   );
 }
 
-function Chair({ position }: { position: [number, number, number] }) {
-  const chair = useConfigStore((s) => s.chair);
-  const leatherConfig = useConfigStore((s) => s.leather);
-  const leather = useLeatherMaterialProps();
-  const wood = useWoodMaterialProps();
+function Chair({ position, rotation = [0, 0, 0] }: { position: [number, number, number], rotation?: [number, number, number] }) {
+  const { chair } = useConfigStore((s) => s);
+  const { wood, leather } = useMaterials();
 
-  if (DEBUG_CONFIG) {
-    logDebug("Chair:render", { chairStyle: chair.style, leatherConfig, position });
-  }
+  const seatDepth = 0.45;
+  const seatWidth = 0.45;
+  const backHeight = chair.style === "high_back" ? 0.6 : 0.4;
+  const legThick = 0.035;
 
-  const seatHeight = 0.46;
-  const baseSeatDepth = 0.45;
-  const baseSeatWidth = 0.42;
-
-  const paddingScale =
-    leatherConfig.seatPadding === "slim" ? 0.9 : leatherConfig.seatPadding === "plush" ? 1.15 : 1;
-  const seatDepth = baseSeatDepth * paddingScale;
-  const seatWidth = baseSeatWidth * paddingScale;
-
-  const seatThickness =
-    leatherConfig.cushionFirmness === "soft"
-      ? 0.08
-      : leatherConfig.cushionFirmness === "firm"
-        ? 0.05
-        : 0.065;
-
-  const backHeightExtra =
-    chair.style === "high_back" ? 0.25 : chair.style === "low_back" ? -0.1 : 0;
-
-  const backAngle = -Math.PI / 14; // slight recline for a more natural posture
-  const backHeight = 0.5 + backHeightExtra;
-
-  const legThickness = 0.035;
-  const legHeight = seatHeight - 0.02;
+  if (chair.style === "bench") return null; 
 
   return (
-    <group position={position} castShadow receiveShadow>
-      {/* Seat */}
-      <mesh position={[0, seatHeight, 0]} castShadow receiveShadow>
-        <boxGeometry args={[seatWidth, seatThickness, seatDepth]} />
-        <StaticMaterial
-          color={leather.colorHex}
-          roughness={leather.roughness}
-          metalness={leather.metalness}
-        />
-      </mesh>
-
-      {/* Backrest */}
-      <mesh
-        position={[0, seatHeight + backHeight / 2 + 0.05, -seatDepth / 2 + 0.03]}
-        rotation={[backAngle, 0, 0]}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={[seatWidth * 0.9, backHeight, 0.06]} />
-        <StaticMaterial
-          color={leather.colorHex}
-          roughness={leather.roughness}
-          metalness={leather.metalness}
-        />
-      </mesh>
-
-      {/* Legs */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z], idx) => (
-        <mesh
-          key={idx}
-          position={[(x * seatWidth) / 2.1, legHeight / 2, (z * seatDepth) / 2.1]}
-          castShadow
-          receiveShadow
-        >
-          <boxGeometry args={[legThickness, legHeight, legThickness]} />
-          <StaticMaterial
-            color={wood.colorHex}
-            roughness={wood.roughness}
-            metalness={wood.metalness}
-          />
-        </mesh>
-      ))}
-
-      {/* Low connecting rails to make the base feel more solid */}
-      <mesh position={[0, legHeight * 0.35, seatDepth / 2.2]} castShadow receiveShadow>
-        <boxGeometry args={[seatWidth * 0.8, legThickness * 0.7, legThickness]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
-      <mesh position={[0, legHeight * 0.35, -seatDepth / 2.2]} castShadow receiveShadow>
-        <boxGeometry args={[seatWidth * 0.8, legThickness * 0.7, legThickness]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
-      <mesh position={[seatWidth / 2.2, legHeight * 0.35, 0]} castShadow receiveShadow>
-        <boxGeometry args={[legThickness, legThickness * 0.7, seatDepth * 0.8]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
-      <mesh position={[-seatWidth / 2.2, legHeight * 0.35, 0]} castShadow receiveShadow>
-        <boxGeometry args={[legThickness, legThickness * 0.7, seatDepth * 0.8]} />
-        <StaticMaterial
-          color={wood.colorHex}
-          roughness={wood.roughness}
-          metalness={wood.metalness}
-        />
-      </mesh>
+    <group position={position} rotation={rotation as any}>
+      <RoundedBox args={[seatWidth, 0.06, seatDepth]} radius={0.02} position={[0, SEAT_HEIGHT, 0]} castShadow receiveShadow>
+        <meshStandardMaterial {...leather} />
+      </RoundedBox>
+      <group position={[0, SEAT_HEIGHT + backHeight/2 + 0.02, -seatDepth/2 + 0.02]}>
+          <RoundedBox args={[seatWidth, backHeight, 0.04]} radius={0.02} castShadow>
+             <meshStandardMaterial {...leather} /> 
+          </RoundedBox>
+      </group>
+      <group>
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([mx, mz], i) => (
+             <mesh key={i} position={[mx * (seatWidth/2 - 0.03), SEAT_HEIGHT/2, mz * (seatDepth/2 - 0.03)]} castShadow>
+                 <boxGeometry args={[legThick, SEAT_HEIGHT, legThick]} />
+                 <meshStandardMaterial {...wood} />
+             </mesh>
+        ))}
+      </group>
+      {(chair.armrestStyle === "slim" || chair.armrestStyle === "full") && (
+         <>
+            {[-1, 1].map((side) => (
+                <mesh key={side} position={[side * (seatWidth/2), SEAT_HEIGHT + 0.15, 0]} castShadow>
+                     <boxGeometry args={[0.04, 0.03, seatDepth]} />
+                     <meshStandardMaterial {...wood} />
+                </mesh>
+            ))}
+         </>
+      )}
     </group>
   );
 }
 
-function ChairsGroup() {
+function ChairsLayout() {
   const { length, width } = useTableDimensions();
-  const sizePreset = useConfigStore((s) => s.sizePreset);
+  const { sizePreset } = useConfigStore((s) => s);
+  const endOffset = length / 2 + 0.35; 
+  const sideOffset = width / 2 + 0.35; 
 
-  const offset = width / 2 + 0.35;
-  const sideOffset = length / 2 - 0.45;
+  const chairs = useMemo(() => {
+     const list: { pos: [number, number, number], rot: [number, number, number] }[] = [];
+     list.push({ pos: [-endOffset, 0, 0], rot: [0, Math.PI / 2, 0] });
+     list.push({ pos: [endOffset, 0, 0], rot: [0, -Math.PI / 2, 0] });
 
-  const chairsForSize = (): [number, number, number][] => {
-    if (sizePreset === "4_seater") {
-      return [
-        [0, 0, -offset],
-        [0, 0, offset],
-        [-sideOffset, 0, 0],
-        [sideOffset, 0, 0],
-      ];
-    }
-
-    if (sizePreset === "6_seater") {
-      return [
-        [0, 0, -offset],
-        [0, 0, offset],
-        [-sideOffset, 0, -offset],
-        [sideOffset, 0, -offset],
-        [-sideOffset, 0, offset],
-        [sideOffset, 0, offset],
-      ];
-    }
-
-    // 8-seater
-    return [
-      [0, 0, -offset],
-      [0, 0, offset],
-      [-sideOffset, 0, -offset],
-      [sideOffset, 0, -offset],
-      [-sideOffset, 0, offset],
-      [sideOffset, 0, offset],
-      [-sideOffset * 0.5, 0, -offset * 1.1],
-      [sideOffset * 0.5, 0, offset * 1.1],
-    ];
-  };
-
-  const chairs = chairsForSize();
-
-  logDebug("ChairsGroup:layout", { sizePreset, length, width, chairCount: chairs.length });
+     if (sizePreset === "4_seater") {
+        list.push({ pos: [0, 0, sideOffset], rot: [0, Math.PI, 0] });
+        list.push({ pos: [0, 0, -sideOffset], rot: [0, 0, 0] });
+     } else if (sizePreset === "6_seater") {
+        [-0.35, 0.35].forEach(x => {
+             list.push({ pos: [x, 0, sideOffset], rot: [0, Math.PI, 0] });
+             list.push({ pos: [x, 0, -sideOffset], rot: [0, 0, 0] });
+        });
+     } else {
+         [-0.6, 0, 0.6].forEach(x => {
+             list.push({ pos: [x, 0, sideOffset], rot: [0, Math.PI, 0] });
+             list.push({ pos: [x, 0, -sideOffset], rot: [0, 0, 0] });
+        });
+     }
+     return list;
+  }, [sizePreset, endOffset, sideOffset]);
 
   return (
     <group>
-      {chairs.map((pos, idx) => (
-        <Chair key={idx} position={pos} />
-      ))}
+        {chairs.map((c, i) => (
+            <Chair key={i} position={c.pos} rotation={c.rot} />
+        ))}
     </group>
-  );
+  )
 }
 
-function DimmableGroup({ children, dimmed }: { children: ReactNode; dimmed?: boolean }) {
-  return <group scale={dimmed ? 0.97 : 1}>{children}</group>;
-}
+// --- Camera Logic (The Glue) ---
 
-function CameraRig({ focusPart, resetKey }: { focusPart: FocusPart; resetKey?: number }) {
-  const { camera } = useThree();
-  const sizePreset = useConfigStore((s) => s.sizePreset);
-  const sceneProps = useSceneProps();
+function CameraController({ focusPart, resetKey }: { focusPart: FocusPart; resetKey: number }) {
+  const { camera, controls } = useThree() as any;
+  const vec = new THREE.Vector3();
+  const targetVec = new THREE.Vector3();
 
-  const baseDistance = sizePreset === "8_seater" ? 3.6 : sizePreset === "6_seater" ? 3.2 : 2.9;
+  // Define target positions based on selection
+  const targets = useMemo(() => {
+    return {
+      default: { pos: [3, 2.5, 3], look: [0, 0.5, 0] },
+      tabletop: { pos: [0, 2.2, 0.1], look: [0, 0, 0] }, // Top-down
+      legs: { pos: [1.5, 0.5, 1.5], look: [0, 0.4, 0] }, // Low Angle
+      structural: { pos: [1.5, 0.4, 1.5], look: [0, 0.3, 0] }, // Even lower
+      chairs: { pos: [1.8, 1.2, 0.8], look: [0, 0.6, 0] }, // Side view
+      finish: { pos: [0.8, 1.2, 0.8], look: [0, 0.76, 0] }, // Close up on surface
+      scene: { pos: [4, 3, 4], look: [0, 0.2, 0] } // Wide shot
+    };
+  }, []);
 
-  const basePosition: [number, number, number] = [baseDistance, 1.7, baseDistance * 1.2];
-  const baseTarget: [number, number, number] = [0, TABLE_HEIGHT, 0];
+  useFrame((state, delta) => {
+    // Determine where we want to go
+    const dest = focusPart && targets[focusPart] ? targets[focusPart] : targets.default;
 
-  let targetPosition = basePosition;
-  let targetLookAt = baseTarget;
+    // Smoothly interpolate Camera Position
+    vec.set(dest.pos[0], dest.pos[1], dest.pos[2]);
+    camera.position.lerp(vec, 2.5 * delta); // Adjust speed factor (2.5) as needed
 
-  if (focusPart === "tabletop") {
-    targetPosition = [baseDistance * 0.85, 1.9, baseDistance];
-    targetLookAt = [0, TABLE_HEIGHT + 0.05, 0];
-  } else if (focusPart === "legs") {
-    targetPosition = [baseDistance * 0.9, 1.2, baseDistance * 0.9];
-    targetLookAt = [0, TABLE_HEIGHT / 2, 0];
-  } else if (focusPart === "chairs") {
-    targetPosition = [baseDistance, 1.5, baseDistance * 1.05];
-    targetLookAt = [0, 0.4, 1.0];
-  }
-
-  logDebug("CameraRig:target", { focusPart, sizePreset, targetPosition, targetLookAt, sceneProps, resetKey });
-
-  useEffect(() => {
-    if (resetKey === undefined) return;
-    logDebug("CameraRig:reset", { resetKey, basePosition, baseTarget });
-    camera.position.set(
-      basePosition[0],
-      basePosition[1] + sceneProps.cameraHeightOffset,
-      basePosition[2],
-    );
-    camera.lookAt(baseTarget[0], baseTarget[1], baseTarget[2]);
-  }, [resetKey, basePosition[0], basePosition[1], basePosition[2], baseTarget[0], baseTarget[1], baseTarget[2], sceneProps.cameraHeightOffset, camera]);
-
-  useFrame(() => {
-    camera.position.lerp(
-      {
-        x: targetPosition[0],
-        y: targetPosition[1] + sceneProps.cameraHeightOffset,
-        z: targetPosition[2],
-      } as any,
-      0.08,
-    );
-    camera.lookAt(targetLookAt[0], targetLookAt[1], targetLookAt[2]);
+    // Smoothly interpolate OrbitControls Target
+    if (controls) {
+      targetVec.set(dest.look[0], dest.look[1], dest.look[2]);
+      controls.target.lerp(targetVec, 2.5 * delta);
+      controls.update();
+    }
   });
 
   return null;
 }
 
-export function ConfiguratorScene({ focusPart, resetKey }: { focusPart: FocusPart; resetKey?: number }) {
-  // FocusPart only affects dimming and camera; we never write to any store here.
-  const isTabletopFocus = focusPart === "tabletop";
-  const isLegsFocus = focusPart === "legs";
-  const isChairsFocus = focusPart === "chairs";
+// --- Main Scene ---
 
-  const sceneProps = useSceneProps();
+export function ConfiguratorScene({ focusPart, resetKey }: { focusPart: FocusPart; resetKey: number }) {
+  const { scene } = useConfigStore((s) => s);
 
   return (
-    <Canvas shadows camera={{ position: [2.5, 1.7, 3.2], fov: 40 }}>
-      <color attach="background" args={[sceneProps.backgroundColor]} />
+    <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 2.5, 3], fov: 45 }}>
+      <color attach="background" args={[scene.background === "studio" ? "#f0f0f0" : "#e4e0d8"]} />
+      
+      <ambientLight intensity={scene.lightingMood === "warm_indoor" ? 0.4 : 0.6} />
+      <directionalLight 
+        position={[5, 8, 5]} 
+        intensity={scene.lightingMood === "warm_indoor" ? 0.8 : 1.2} 
+        castShadow 
+        shadow-bias={-0.0001}
+      >
+        <orthographicCamera attach="shadow-camera" args={[-5, 5, 5, -5]} />
+      </directionalLight>
 
-      {/* Neutral studio-style lighting */}
-      <ambientLight intensity={sceneProps.ambientIntensity} />
-      <directionalLight
-        position={[4, 6, 2.5]}
-        intensity={sceneProps.directionalIntensity}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
+      <spotLight position={[-5, 5, -5]} intensity={0.5} color={scene.lightingMood === "warm_indoor" ? "#ffdcb4" : "#ffffff"} />
 
-      {/* Floor plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, 0, 0]}>
-        <circleGeometry args={[6, 64]} />
-        <meshStandardMaterial color="#e7e5ee" roughness={0.92} metalness={0.02} />
-      </mesh>
+      <group position={[0, -0.01, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[20, 20]} />
+          <meshStandardMaterial color={scene.background === "studio" ? "#ffffff" : "#d8d4cd"} roughness={0.8} />
+        </mesh>
+        <ContactShadows resolution={1024} scale={10} blur={2} opacity={0.4} far={1} color="#000000" />
+      </group>
 
-      <DimmableGroup dimmed={isChairsFocus}>
-        <TableTop />
-        <TableBase />
-      </DimmableGroup>
+      <TableTop />
+      <TableLegs />
+      <ChairsLayout />
 
-      <DimmableGroup dimmed={isTabletopFocus || isLegsFocus ? false : undefined}>
-        <ChairsGroup />
-      </DimmableGroup>
-
-      <ContactShadows
-        position={[0, 0.001, 0]}
-        opacity={sceneProps.shadowOpacity}
-        width={10}
-        height={10}
-        blur={2.5}
-        far={6}
-      />
-
-      <Environment preset="studio" />
-      <CameraRig focusPart={focusPart} resetKey={resetKey} />
-      <OrbitControls
+      <Environment preset={scene.lightingMood === "warm_indoor" ? "apartment" : "studio"} blur={0.8} />
+      
+      {/* This component handles the smooth camera transition based on UI clicks */}
+      <CameraController focusPart={focusPart} resetKey={resetKey} />
+      
+      <OrbitControls 
+        makeDefault 
+        minPolarAngle={0} 
+        maxPolarAngle={Math.PI / 2 - 0.05} 
         enablePan={false}
-        enableZoom
-        minDistance={2.2}
-        maxDistance={4.2}
-        minPolarAngle={Math.PI / 3.2}
-        maxPolarAngle={Math.PI / 2.2}
       />
     </Canvas>
   );
 }
-
