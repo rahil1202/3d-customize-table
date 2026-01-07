@@ -3,11 +3,8 @@ import { useMemo } from "react";
 import {
   useConfigStore,
   WoodColor,
-  FootCapMaterial,
   LeatherColor,
-  StitchingColor,
-  LightingMood,
-  BackgroundPreset,
+  EnvironmentPreset,
 } from "@/store/configStore";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -24,20 +21,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Armchair,
   Check,
-  Expand,
   Grid3X3,
   Layers,
   Palette,
   Scaling,
   Scan,
+  RotateCcw,
   ShoppingBag,
-  Sparkles,
-  SunMedium,
+  Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +43,6 @@ export type FocusPart =
   | "tabletop"
   | "finish"
   | "chairs"
-  | "structural"
   | "scene"
   | null;
 
@@ -60,18 +54,16 @@ const calculatePrice = (
   leather: string,
   chairs: number
 ) => {
-  let base = 1299; 
-  if (size === "6_seater") base += 400;
-  if (size === "8_seater") base += 800;
-  if (marble.includes("green") || marble.includes("black")) base += 350; 
-  if (marble.includes("white")) base += 150;
-  if (wood === "walnut_dark") base += 200; 
-  if (leather === "tan" || leather === "olive") base += (chairs * 50); 
+  let base = 12999; 
+  if (size === "6_seater") base += 4000;
+  if (size === "8_seater") base += 8000;
+  if (marble.includes("green") || marble.includes("black")) base += 3500; 
+  if (wood === "walnut_dark") base += 2000; 
+  if (leather === "tan" || leather === "olive") base += (chairs * 500); 
   return base;
 };
 
 // --- Helper Components ---
-
 function CompactRadioGroup<T extends string>({
   label,
   value,
@@ -155,6 +147,7 @@ export function ConfigPanel({
 }) {
   const store = useConfigStore();
   const setConfig = store.setConfig;
+  const setScene = store.setScene;
 
   const chairCount = store.sizePreset === "4_seater" ? 4 : store.sizePreset === "6_seater" ? 6 : 8;
   const price = useMemo(() => calculatePrice(
@@ -186,13 +179,10 @@ export function ConfigPanel({
         )}
         onClick={() => onFocusPartChange(partId)}
       >
-        {/* Active Line Indicator */}
         <span className={cn(
             "absolute top-0 left-1/2 h-[3px] w-0 -translate-x-1/2 bg-primary transition-all duration-500 ease-out",
             isActive && "w-full shadow-[0_0_12px_rgba(var(--primary),0.8)]"
         )} />
-        
-        {/* Icon Container */}
         <div className={cn(
             "rounded-2xl p-2.5 transition-all duration-500 ease-out will-change-transform",
             isActive 
@@ -201,7 +191,6 @@ export function ConfigPanel({
         )}>
            <Icon className={cn("h-5 w-5", isActive && "stroke-[2.5px]")} />
         </div>
-        
         <span className="text-[10px] font-bold uppercase tracking-wider">
           {label}
         </span>
@@ -211,17 +200,21 @@ export function ConfigPanel({
 
   return (
     <>
-    {/* Floating Price Card */}
-    <div className="pointer-events-none fixed top-24 right-6 z-40 hidden flex-col items-end gap-3 sm:flex animate-in slide-in-from-right-8 fade-in duration-700">
-        <div className="pointer-events-auto flex flex-col items-end rounded-2xl border border-white/20 bg-background/60 p-5 shadow-2xl backdrop-blur-xl transition-all hover:bg-background/80 hover:scale-[1.02]">
+    {/* Floating Top Right Controls */}
+    <div className="fixed top-6 right-6 z-40 flex flex-col items-end gap-3">
+        {/* Reset View Button */}
+       
+
+        {/* Estimate Card */}
+        <div className="hidden mt-16 sm:flex flex-col items-end rounded-2xl border border-white/20 bg-background/60 p-5 shadow-2xl backdrop-blur-xl transition-all hover:bg-background/80 hover:scale-[1.02]">
             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <ShoppingBag className="h-3 w-3" /> Estimate
             </span>
             <div className="mt-1 flex items-baseline gap-1">
                 <span className="text-3xl font-black tracking-tight text-foreground">
-                    ${price.toLocaleString()}
+                    ₹{price.toLocaleString()}
                 </span>
-                <span className="text-xs font-bold text-muted-foreground">USD</span>
+                <span className="text-xs font-bold text-muted-foreground">INR</span>
             </div>
             <div className="mt-2 w-full">
                 <Button size="sm" className="w-full gap-2 rounded-lg font-semibold shadow-lg shadow-primary/20 transition-transform active:scale-95">
@@ -235,6 +228,7 @@ export function ConfigPanel({
     <div className="fixed bottom-6 left-4 right-4 z-50 mx-auto flex max-w-4xl justify-center rounded-3xl border border-white/20 bg-background/80 px-2 pb-1 pt-1 shadow-2xl backdrop-blur-2xl supports-[backdrop-filter]:bg-background/60">
       <div className="flex w-full items-center justify-between overflow-x-auto no-scrollbar sm:justify-center sm:gap-2">
         
+        {/* 1. TABLE DESIGN */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
           <ConfigTrigger icon={Layers} label="Style" isActive={focusPart === "table-design"} partId="table-design" />
           <PopoverContent className="w-80 rounded-2xl p-5 shadow-2xl ring-1 ring-black/5" side="top" sideOffset={20}>
@@ -255,6 +249,7 @@ export function ConfigPanel({
 
         <div className="h-10 w-px bg-border/50" />
 
+        {/* 2. SIZE */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
           <ConfigTrigger icon={Scaling} label="Size" isActive={focusPart === "size"} partId="size" />
           <PopoverContent className="w-72 rounded-2xl p-5 shadow-2xl ring-1 ring-black/5" side="top" sideOffset={20}>
@@ -274,6 +269,7 @@ export function ConfigPanel({
 
         <div className="h-10 w-px bg-border/50" />
 
+        {/* 3. TABLETOP (SHAPE & STONE) */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
           <ConfigTrigger icon={Grid3X3} label="Stone" isActive={focusPart === "tabletop"} partId="tabletop" />
           <PopoverContent className="w-[420px] rounded-2xl p-0 shadow-2xl overflow-hidden ring-1 ring-black/5" side="top" sideOffset={20}>
@@ -291,10 +287,10 @@ export function ConfigPanel({
                     onChange={(shape) => setConfig({ marbleShape: { ...store.marbleShape, shape } })}
                     options={[
                         { value: "rectangle", label: "Rectangle" },
-                        { value: "oval", label: "Oval" },
                         { value: "rounded_rectangle", label: "Soft Rect" },
-                        { value: "boat", label: "Boat" },
+                        { value: "oval", label: "Oval" },
                         { value: "soft_organic", label: "Organic" },
+                        { value: "boat", label: "Boat" },
                     ]}
                     />
                 </TabsContent>
@@ -311,17 +307,6 @@ export function ConfigPanel({
                         { value: "green_exotic", label: "Verde Guatemala" },
                     ]}
                     />
-                    <CompactRadioGroup
-                        columns={3}
-                        label="Surface Polish"
-                        value={store.marbleMaterial.finish}
-                        onChange={(finish) => setConfig({ marbleMaterial: { ...store.marbleMaterial, finish } })}
-                        options={[
-                        { value: "polished", label: "Polished" },
-                        { value: "honed", label: "Honed" },
-                        { value: "leathered", label: "Textured" },
-                        ]}
-                    />
                 </TabsContent>
               </div>
             </Tabs>
@@ -330,6 +315,7 @@ export function ConfigPanel({
 
         <div className="h-10 w-px bg-border/50" />
 
+        {/* 4. FINISH (WOOD POLISH COLOUR) */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
           <ConfigTrigger icon={Palette} label="Wood" isActive={focusPart === "finish"} partId="finish" />
           <PopoverContent className="w-80 rounded-2xl p-5 shadow-2xl ring-1 ring-black/5" side="top" sideOffset={20}>
@@ -351,36 +337,25 @@ export function ConfigPanel({
                   </SelectContent>
                 </Select>
               </div>
-              <CompactRadioGroup
-                label="Sheen"
-                columns={3}
-                value={store.woodMaterial.finish}
-                onChange={(finish) => setConfig({ woodMaterial: { ...store.woodMaterial, finish } })}
-                options={[
-                  { value: "matte", label: "Matte" },
-                  { value: "satin", label: "Satin" },
-                  { value: "semi_gloss", label: "Semi-Gloss" },
-                ]}
-              />
             </div>
           </PopoverContent>
         </Popover>
 
         <div className="h-10 w-px bg-border/50" />
 
+        {/* 5. CHAIRS (DESIGN & LEATHER) */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
           <ConfigTrigger icon={Armchair} label="Chairs" isActive={focusPart === "chairs"} partId="chairs" />
           <PopoverContent className="w-[500px] rounded-2xl p-0 shadow-2xl overflow-hidden ring-1 ring-black/5" side="top" sideOffset={20}>
             <Tabs defaultValue="style" className="w-full">
               <div className="bg-muted/40 p-2">
-                  <TabsList className="grid w-full grid-cols-3 rounded-xl bg-background/50 p-1 shadow-sm">
+                  <TabsList className="grid w-full grid-cols-2 rounded-xl bg-background/50 p-1 shadow-sm">
                     <TabsTrigger value="style" className="rounded-lg text-xs font-semibold">Shape</TabsTrigger>
                     <TabsTrigger value="leather" className="rounded-lg text-xs font-semibold">Upholstery</TabsTrigger>
-                    <TabsTrigger value="comfort" className="rounded-lg text-xs font-semibold">Comfort</TabsTrigger>
                   </TabsList>
               </div>
               <div className="p-5 pt-3">
-                <TabsContent value="style" className="grid grid-cols-2 gap-6">
+                <TabsContent value="style" className="grid grid-cols-1 gap-6">
                     <CompactRadioGroup
                     label="Model"
                     value={store.chair.style}
@@ -393,23 +368,9 @@ export function ConfigPanel({
                         { value: "bench", label: "Bench" },
                     ]}
                     />
-                    <div className="space-y-6">
-                    <CompactRadioGroup
-                        label="Armrests"
-                        value={store.chair.armrestStyle}
-                        onChange={(armrestStyle) => setConfig({ chair: { ...store.chair, armrestStyle } })}
-                        options={[{ value: "none", label: "None" }, { value: "slim", label: "Slim" }, { value: "full", label: "Full" }]}
-                    />
-                    <CompactRadioGroup
-                        label="Stitch Pattern"
-                        value={store.chair.backrestPattern}
-                        onChange={(backrestPattern) => setConfig({ chair: { ...store.chair, backrestPattern } })}
-                        options={[{ value: "plain", label: "Plain" }, { value: "stitched", label: "Quilted" }, { value: "cut_out", label: "Ventilated" }]}
-                    />
-                    </div>
                 </TabsContent>
 
-                <TabsContent value="leather" className="grid grid-cols-2 gap-6">
+                <TabsContent value="leather" className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
                     <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Leather Tone</Label>
                     <Select value={store.leather.color} onValueChange={(color: LeatherColor) => setConfig({ leather: { ...store.leather, color } })}>
@@ -424,42 +385,6 @@ export function ConfigPanel({
                         </SelectContent>
                     </Select>
                     </div>
-                    <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stitching</Label>
-                    <Select value={store.leather.stitchingColor} onValueChange={(stitchingColor: StitchingColor) => setConfig({ leather: { ...store.leather, stitchingColor } })}>
-                        <SelectTrigger className="h-11 rounded-lg border-2"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="match">Matched Thread</SelectItem>
-                        <SelectItem value="contrast">Contrast Thread</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    </div>
-                    <div className="col-span-2">
-                    <CompactRadioGroup
-                        columns={3}
-                        label="Grain Texture"
-                        value={store.leather.finish}
-                        onChange={(finish) => setConfig({ leather: { ...store.leather, finish } })}
-                        options={[{ value: "smooth", label: "Smooth" }, { value: "grained", label: "Pebbled" }, { value: "distressed", label: "Vintage" }]}
-                    />
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="comfort" className="space-y-6">
-                    <CompactRadioGroup
-                    columns={3}
-                    label="Foam Density"
-                    value={store.leather.cushionFirmness}
-                    onChange={(v) => setConfig({ leather: { ...store.leather, cushionFirmness: v } })}
-                    options={[{ value: "soft", label: "Plush" }, { value: "medium", label: "Medium" }, { value: "firm", label: "Firm Support" }]}
-                    />
-                    <CompactRadioGroup
-                    columns={3}
-                    label="Padding Thickness"
-                    value={store.leather.seatPadding}
-                    onChange={(v) => setConfig({ leather: { ...store.leather, seatPadding: v } })}
-                    options={[{ value: "slim", label: "Slim" }, { value: "standard", label: "Standard" }, { value: "plush", label: "Extra Plush" }]}
-                    />
                 </TabsContent>
               </div>
             </Tabs>
@@ -468,73 +393,26 @@ export function ConfigPanel({
 
         <div className="h-10 w-px bg-border/50" />
 
+        {/* 6. SCENE SETTINGS */}
         <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
-          <ConfigTrigger icon={Expand} label="Detail" isActive={focusPart === "structural"} partId="structural" />
-          <PopoverContent className="w-80 rounded-2xl p-5 shadow-2xl ring-1 ring-black/5" side="top" sideOffset={20}>
-             <SectionHeader icon={Expand} title="Structure" />
-            <div className="space-y-5">
-              <CompactRadioGroup
-                columns={3}
-                label="Leg Thickness"
-                value={store.structural.legThickness}
-                onChange={(v) => setConfig({ structural: { ...store.structural, legThickness: v } })}
-                options={[{ value: "slim", label: "Slim" }, { value: "medium", label: "Standard" }, { value: "thick", label: "Bold" }]}
-              />
-              <CompactRadioGroup
-                columns={3}
-                label="Structural Stretchers"
-                value={store.structural.stretcherStyle}
-                onChange={(v) => setConfig({ structural: { ...store.structural, stretcherStyle: v } })}
-                options={[{ value: "straight", label: "H-Frame" }, { value: "cross", label: "X-Frame" }, { value: "hidden", label: "None" }]}
-              />
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Protective Caps</Label>
-                <Select value={store.structural.footCapMaterial} onValueChange={(v: FootCapMaterial) => setConfig({ structural: { ...store.structural, footCapMaterial: v } })}>
-                  <SelectTrigger className="h-11 rounded-lg border-2"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="wood">None (Wood)</SelectItem>
-                    <SelectItem value="metal">Brushed Brass</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <div className="h-10 w-px bg-border/50" />
-
-        <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
-          <ConfigTrigger icon={SunMedium} label="Scene" isActive={focusPart === "scene"} partId="scene" />
+          <ConfigTrigger icon={Scan} label="Scene" isActive={focusPart === "scene"} partId="scene" />
           <PopoverContent className="w-72 rounded-2xl p-5 shadow-2xl mr-4 ring-1 ring-black/5" side="top" sideOffset={20} align="end">
-             <SectionHeader icon={Scan} title="Environment" />
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lighting</Label>
-                <Select value={store.scene.lightingMood} onValueChange={(v: LightingMood) => setConfig({ scene: { ...store.scene, lightingMood: v } })}>
-                  <SelectTrigger className="h-11 rounded-lg border-2"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="soft_daylight">Studio Daylight</SelectItem>
-                    <SelectItem value="warm_indoor">Cozy Evening</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Backdrop</Label>
-                <Select value={store.scene.background} onValueChange={(v: BackgroundPreset) => setConfig({ scene: { ...store.scene, background: v } })}>
-                  <SelectTrigger className="h-11 rounded-lg border-2"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="studio">Clean White</SelectItem>
-                    <SelectItem value="subtle_interior">Abstract Room</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <CompactRadioGroup
-                label="Shadow Softness"
-                value={store.scene.shadowIntensity}
-                onChange={(v) => setConfig({ scene: { ...store.scene, shadowIntensity: v } })}
-                options={[{ value: "low", label: "Soft / Diffused" }, { value: "medium", label: "Hard / Direct" }]}
-              />
-            </div>
+             <SectionHeader icon={Home} title="Environment" />
+             <div className="space-y-5">
+               <div className="space-y-2">
+                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lighting & Vibe</Label>
+                 <Select value={store.scene.environment} onValueChange={(v: EnvironmentPreset) => setScene({ environment: v })}>
+                   <SelectTrigger className="h-11 rounded-lg border-2"><SelectValue /></SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="apartment">Modern Apartment</SelectItem>
+                     <SelectItem value="studio">Photo Studio</SelectItem>
+                     <SelectItem value="city">City Daylight</SelectItem>
+                     <SelectItem value="sunset">Golden Hour</SelectItem>
+                     <SelectItem value="night">Cozy Night</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+             </div>
           </PopoverContent>
         </Popover>
 

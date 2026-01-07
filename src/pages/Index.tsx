@@ -68,7 +68,7 @@ const Index = () => {
       <ConfigPanel focusPart={focusPart} onFocusPartChange={setFocusPart} />
       
       <section className="relative flex-1 w-full bg-accent/10 pb-14">
-        <ConfiguratorScene focusPart={focusPart} resetKey={cameraResetKey} />
+        <ConfiguratorScene focusPart={focusPart}  />
       </section>
 
       {/* FOOTER CONTROLS:

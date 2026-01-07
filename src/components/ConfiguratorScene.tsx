@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { 
   OrbitControls, 
@@ -14,7 +14,7 @@ import { useConfigStore } from "@/store/configStore";
 const TABLE_HEIGHT = 0.76; 
 const SEAT_HEIGHT = 0.46;
 
-export type FocusPart = "table-design" | "size" | "tabletop" | "legs" | "finish" | "chairs" | "structural" | "scene" | null;
+export type FocusPart = "table-design" | "size" | "tabletop" | "legs" | "finish" | "chairs" | "scene" | null;
 
 // --- Helper Hooks ---
 
@@ -38,12 +38,11 @@ function useMaterials() {
       black_marble: "#1a1a1a",
       green_exotic: "#2e3b32",
     };
-    const isPolished = marbleMaterial.finish === "polished";
     return {
       color: colors[marbleMaterial.color] || "#e8e8e8",
-      roughness: isPolished ? 0.05 : 0.35,
+      roughness: 0.05, // Polished
       metalness: 0.1,
-      envMapIntensity: isPolished ? 1.2 : 0.6,
+      envMapIntensity: 1.0,
     };
   }, [marbleMaterial]);
 
@@ -57,7 +56,7 @@ function useMaterials() {
     };
     return {
       color: colors[woodMaterial.color] || "#dcb27e",
-      roughness: woodMaterial.finish === "matte" ? 0.8 : 0.3,
+      roughness: 0.3,
       metalness: 0.0,
       envMapIntensity: 0.5,
     };
@@ -74,7 +73,7 @@ function useMaterials() {
     };
     return {
       color: colors[leather.color] || "#111",
-      roughness: leather.finish === "smooth" ? 0.45 : 0.85,
+      roughness: 0.45,
       metalness: 0.05,
       envMapIntensity: 0.6,
     };
@@ -90,18 +89,71 @@ function TableTop() {
   const { length, width, thickness } = useTableDimensions();
   const { marble } = useMaterials();
 
-  const radius = useMemo(() => {
-    if (marbleShape.shape === "oval") return width / 2;
-    if (marbleShape.shape === "rounded_rectangle") return 0.15;
-    if (marbleShape.shape === "soft_organic") return 0.3; 
-    return 0.01; 
-  }, [marbleShape.shape, width]);
+  // Create shapes using 2D geometry to prevent height bulging
+  const shape = useMemo(() => {
+    const s = new THREE.Shape();
+    const w = width / 2;
+    const l = length / 2;
+
+    if (marbleShape.shape === "rectangle") {
+      s.moveTo(-l, -w);
+      s.lineTo(l, -w);
+      s.lineTo(l, w);
+      s.lineTo(-l, w);
+      s.lineTo(-l, -w);
+    } 
+    else if (marbleShape.shape === "rounded_rectangle") {
+      const r = 0.15; // Corner radius
+      s.moveTo(-l + r, -w);
+      s.lineTo(l - r, -w);
+      s.quadraticCurveTo(l, -w, l, -w + r);
+      s.lineTo(l, w - r);
+      s.quadraticCurveTo(l, w, l - r, w);
+      s.lineTo(-l + r, w);
+      s.quadraticCurveTo(-l, w, -l, w - r);
+      s.lineTo(-l, -w + r);
+      s.quadraticCurveTo(-l, -w, -l + r, -w);
+    }
+    else if (marbleShape.shape === "oval") {
+      s.ellipse(0, 0, l, w, 0, Math.PI * 2, false, 0);
+    }
+    else if (marbleShape.shape === "boat") {
+      s.moveTo(-l, -w * 0.7);
+      s.quadraticCurveTo(0, -w, l, -w * 0.7);
+      s.lineTo(l, w * 0.7);
+      s.quadraticCurveTo(0, w, -l, w * 0.7);
+      s.lineTo(-l, -w * 0.7);
+    }
+    else if (marbleShape.shape === "soft_organic") {
+        // Asymmetric bean-like shape
+        s.moveTo(-l, -w * 0.5);
+        s.bezierCurveTo(-l * 0.5, -w * 1.2, l * 0.5, -w, l, -w * 0.6);
+        s.bezierCurveTo(l * 1.1, -w * 0.2, l, w * 0.8, l * 0.4, w);
+        s.bezierCurveTo(-l * 0.2, w * 0.8, -l * 0.8, w * 1.1, -l, w * 0.6);
+        s.lineTo(-l, -w * 0.5);
+    }
+    return s;
+  }, [marbleShape.shape, length, width]);
 
   return (
-    <group position={[0, TABLE_HEIGHT - thickness / 2, 0]}>
-      <RoundedBox args={[length, thickness, width]} radius={radius} smoothness={4} castShadow receiveShadow>
+    <group position={[0, TABLE_HEIGHT, 0]}>
+      {/* Rotate -90deg on X to lay flat */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <extrudeGeometry 
+          args={[
+            shape, 
+            { 
+              depth: thickness, 
+              bevelEnabled: true, 
+              bevelSize: 0.005, 
+              bevelThickness: 0.005,
+              steps: 2 
+            }
+          ]} 
+        />
+        {/* We move geometry down by thickness to align top surface with 0 local Y */}
         <meshStandardMaterial {...marble} />
-      </RoundedBox>
+      </mesh>
     </group>
   );
 }
@@ -109,10 +161,10 @@ function TableTop() {
 function TableLegs() {
   const { length, width, legInset } = useTableDimensions();
   const { wood } = useMaterials();
-  const { structural, tableDesign } = useConfigStore((s) => s);
+  const { tableDesign } = useConfigStore((s) => s);
 
-  const legH = TABLE_HEIGHT - 0.04; 
-  const legW = structural.legThickness === "slim" ? 0.05 : structural.legThickness === "thick" ? 0.12 : 0.08;
+  const legH = TABLE_HEIGHT; 
+  const legW = 0.08;
   const x = length / 2 - legInset;
   const z = width / 2 - legInset;
 
@@ -158,15 +210,9 @@ function TableLegs() {
     <group>
       {[[-x, -z], [x, -z], [-x, z], [x, z]].map(([px, pz], i) => (
         <group key={i} position={[px, legH / 2, pz]}>
-          <RoundedBox args={[legW, legH, legW]} radius={structural.legThickness === "thick" ? 0.04 : 0.01} smoothness={4} castShadow receiveShadow>
+          <RoundedBox args={[legW, legH, legW]} radius={0.01} smoothness={4} castShadow receiveShadow>
             <meshStandardMaterial {...wood} />
           </RoundedBox>
-          {structural.footCapMaterial === "metal" && (
-            <mesh position={[0, -legH/2 + 0.02, 0]}>
-                <cylinderGeometry args={[legW * 0.55, legW * 0.55, 0.04, 32]} />
-                <meshStandardMaterial color="#888" metalness={0.9} roughness={0.2} />
-            </mesh>
-          )}
         </group>
       ))}
       <group position={[0, legH - 0.06, 0]}>
@@ -186,7 +232,7 @@ function TableLegs() {
 function Chair({ position, rotation = [0, 0, 0] }: { position: [number, number, number], rotation?: [number, number, number] }) {
   const { chair } = useConfigStore((s) => s);
   const { wood, leather } = useMaterials();
-
+  
   const seatDepth = 0.45;
   const seatWidth = 0.45;
   const backHeight = chair.style === "high_back" ? 0.6 : 0.4;
@@ -212,15 +258,15 @@ function Chair({ position, rotation = [0, 0, 0] }: { position: [number, number, 
              </mesh>
         ))}
       </group>
-      {(chair.armrestStyle === "slim" || chair.armrestStyle === "full") && (
-         <>
-            {[-1, 1].map((side) => (
+      {(chair.style === "arm_chair") && (
+          <>
+             {[-1, 1].map((side) => (
                 <mesh key={side} position={[side * (seatWidth/2), SEAT_HEIGHT + 0.15, 0]} castShadow>
-                     <boxGeometry args={[0.04, 0.03, seatDepth]} />
-                     <meshStandardMaterial {...wood} />
-                </mesh>
+                      <boxGeometry args={[0.04, 0.03, seatDepth]} />
+                      <meshStandardMaterial {...wood} />
+                 </mesh>
             ))}
-         </>
+          </>
       )}
     </group>
   );
@@ -263,39 +309,49 @@ function ChairsLayout() {
   )
 }
 
-// --- Camera Logic (The Glue) ---
+// --- Camera Logic ---
 
-function CameraController({ focusPart, resetKey }: { focusPart: FocusPart; resetKey: number }) {
+function CameraController({ focusPart }: { focusPart: FocusPart }) {
   const { camera, controls } = useThree() as any;
+  const { resetKey } = useConfigStore();
+  
   const vec = new THREE.Vector3();
   const targetVec = new THREE.Vector3();
+
+  // Reset Logic
+  useEffect(() => {
+    if (controls) {
+      controls.reset();
+      // Manually set camera to default position
+      camera.position.set(3, 2.5, 3);
+      controls.target.set(0, 0.5, 0);
+    }
+  }, [resetKey, controls, camera]);
 
   // Define target positions based on selection
   const targets = useMemo(() => {
     return {
       default: { pos: [3, 2.5, 3], look: [0, 0.5, 0] },
-      tabletop: { pos: [0, 2.2, 0.1], look: [0, 0, 0] }, // Top-down
-      legs: { pos: [1.5, 0.5, 1.5], look: [0, 0.4, 0] }, // Low Angle
-      structural: { pos: [1.5, 0.4, 1.5], look: [0, 0.3, 0] }, // Even lower
-      chairs: { pos: [1.8, 1.2, 0.8], look: [0, 0.6, 0] }, // Side view
-      finish: { pos: [0.8, 1.2, 0.8], look: [0, 0.76, 0] }, // Close up on surface
-      scene: { pos: [4, 3, 4], look: [0, 0.2, 0] } // Wide shot
+      tabletop: { pos: [0, 2.2, 0.1], look: [0, 0, 0] },
+      chairs: { pos: [1.8, 1.2, 0.8], look: [0, 0.6, 0] }, 
+      finish: { pos: [0.8, 1.2, 0.8], look: [0, 0.76, 0] },
+      scene: { pos: [4, 3, 4], look: [0, 0.2, 0] }
     };
   }, []);
 
   useFrame((state, delta) => {
-    // Determine where we want to go
-    const dest = focusPart && targets[focusPart] ? targets[focusPart] : targets.default;
+    if (focusPart) {
+        const dest = targets[focusPart] || targets.default;
+        // Smoothly interpolate Camera Position
+        vec.set(dest.pos[0], dest.pos[1], dest.pos[2]);
+        camera.position.lerp(vec, 2.5 * delta); 
 
-    // Smoothly interpolate Camera Position
-    vec.set(dest.pos[0], dest.pos[1], dest.pos[2]);
-    camera.position.lerp(vec, 2.5 * delta); // Adjust speed factor (2.5) as needed
-
-    // Smoothly interpolate OrbitControls Target
-    if (controls) {
-      targetVec.set(dest.look[0], dest.look[1], dest.look[2]);
-      controls.target.lerp(targetVec, 2.5 * delta);
-      controls.update();
+        // Smoothly interpolate OrbitControls Target
+        if (controls) {
+            targetVec.set(dest.look[0], dest.look[1], dest.look[2]);
+            controls.target.lerp(targetVec, 2.5 * delta);
+            controls.update();
+        }
     }
   });
 
@@ -304,29 +360,32 @@ function CameraController({ focusPart, resetKey }: { focusPart: FocusPart; reset
 
 // --- Main Scene ---
 
-export function ConfiguratorScene({ focusPart, resetKey }: { focusPart: FocusPart; resetKey: number }) {
-  const { scene } = useConfigStore((s) => s);
+export function ConfiguratorScene({ focusPart }: { focusPart: FocusPart }) {
+  const { scene } = useConfigStore();
 
   return (
     <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 2.5, 3], fov: 45 }}>
-      <color attach="background" args={[scene.background === "studio" ? "#f0f0f0" : "#e4e0d8"]} />
+      {/* Background changes based on environment preset */}
+      <color attach="background" args={[scene.environment === "studio" ? "#f0f0f0" : "#202020"]} />
       
-      <ambientLight intensity={scene.lightingMood === "warm_indoor" ? 0.4 : 0.6} />
+      <ambientLight intensity={scene.environment === "night" ? 0.2 : 0.6} />
       <directionalLight 
         position={[5, 8, 5]} 
-        intensity={scene.lightingMood === "warm_indoor" ? 0.8 : 1.2} 
+        intensity={scene.environment === "night" ? 0.3 : 1.2} 
         castShadow 
         shadow-bias={-0.0001}
       >
         <orthographicCamera attach="shadow-camera" args={[-5, 5, 5, -5]} />
       </directionalLight>
 
-      <spotLight position={[-5, 5, -5]} intensity={0.5} color={scene.lightingMood === "warm_indoor" ? "#ffdcb4" : "#ffffff"} />
-
+      {/* Ground Plane */}
       <group position={[0, -0.01, 0]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[20, 20]} />
-          <meshStandardMaterial color={scene.background === "studio" ? "#ffffff" : "#d8d4cd"} roughness={0.8} />
+          <meshStandardMaterial 
+            color={scene.environment === "studio" ? "#ffffff" : "#333333"} 
+            roughness={0.8} 
+          />
         </mesh>
         <ContactShadows resolution={1024} scale={10} blur={2} opacity={0.4} far={1} color="#000000" />
       </group>
@@ -335,10 +394,9 @@ export function ConfiguratorScene({ focusPart, resetKey }: { focusPart: FocusPar
       <TableLegs />
       <ChairsLayout />
 
-      <Environment preset={scene.lightingMood === "warm_indoor" ? "apartment" : "studio"} blur={0.8} />
+      <Environment preset={scene.environment} blur={0.8} background={scene.environment !== "studio"} />
       
-      {/* This component handles the smooth camera transition based on UI clicks */}
-      <CameraController focusPart={focusPart} resetKey={resetKey} />
+      <CameraController focusPart={focusPart} />
       
       <OrbitControls 
         makeDefault 
