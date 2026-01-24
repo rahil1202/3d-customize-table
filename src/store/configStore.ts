@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { DEFAULT_CHAIR_ID } from "@/config/chairCatalog";
+import { DEFAULT_TABLE_TOP_ID } from "@/config/tableTopCatalog";
 
 // --- 1. Size Presets ---
 export type TableSizePreset = "4_seater" | "6_seater" | "8_seater";
@@ -19,13 +21,6 @@ export type MarbleShape =
   | "boat"
   | "soft_organic";
 
-export type MarbleColor =
-  | "white_carrara"
-  | "beige_cream"
-  | "grey_veined"
-  | "black_marble"
-  | "green_exotic";
-
 // --- 4. Wood (Polish) ---
 export type WoodColor =
   | "natural"
@@ -34,13 +29,9 @@ export type WoodColor =
   | "espresso"
   | "charcoal";
 
-// --- 5. Chair Design & Leather ---
-export type ChairDesignStyle =
-  | "minimal_modern"
-  | "arm_chair"
-  | "high_back"
-  | "low_back"
-  | "bench";
+// --- 5. Chair Selection ---
+// Chair ID references the catalog (K-CH-1 through K-CH-16)
+// Leather color applies to any selected chair's upholstery
 
 export type LeatherColor =
   | "black"
@@ -70,17 +61,15 @@ export interface ConfigState {
     shape: MarbleShape;
   };
   
-  marbleMaterial: {
-    color: MarbleColor;
-  };
+  // Table top selection - references tableTopCatalog (VR-001 through VR-025)
+  selectedTableTopId: string;
 
   woodMaterial: {
     color: WoodColor;
   };
 
-  chair: {
-    style: ChairDesignStyle;
-  };
+  // Chair selection - references chairCatalog (K-CH-1 through K-CH-16)
+  selectedChairId: string;
   
   leather: {
     color: LeatherColor;
@@ -96,6 +85,8 @@ export interface ConfigState {
 
   setConfig: (partial: Partial<ConfigState>) => void;
   setScene: (partial: Partial<ConfigState["scene"]>) => void;
+  setChair: (chairId: string) => void;
+  setTableTop: (tableTopId: string) => void;
 }
 
 export const useConfigStore = create<ConfigState>((set) => ({
@@ -109,17 +100,15 @@ export const useConfigStore = create<ConfigState>((set) => ({
     shape: "rounded_rectangle",
   },
 
-  marbleMaterial: {
-    color: "white_carrara",
-  },
+  // Default to first table top in catalog
+  selectedTableTopId: DEFAULT_TABLE_TOP_ID,
 
   woodMaterial: {
     color: "oak_light",
   },
 
-  chair: {
-    style: "minimal_modern",
-  },
+  // Default to first chair in catalog
+  selectedChairId: DEFAULT_CHAIR_ID,
 
   leather: {
     color: "tan",
@@ -134,4 +123,6 @@ export const useConfigStore = create<ConfigState>((set) => ({
 
   setConfig: (partial) => set((state) => ({ ...state, ...partial })),
   setScene: (partial) => set((state) => ({ ...state, scene: { ...state.scene, ...partial } })),
+  setChair: (chairId) => set({ selectedChairId: chairId }),
+  setTableTop: (tableTopId) => set({ selectedTableTopId: tableTopId }),
 }));
