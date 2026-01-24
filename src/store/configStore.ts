@@ -1,19 +1,12 @@
 import { create } from "zustand";
 import { DEFAULT_CHAIR_ID } from "@/config/chairCatalog";
 import { DEFAULT_TABLE_TOP_ID } from "@/config/tableTopCatalog";
+import { DEFAULT_TABLE_ID } from "@/config/tableCatalog";
 
 // --- 1. Size Presets ---
 export type TableSizePreset = "4_seater" | "6_seater" | "8_seater";
 
-// --- 2. Table Design ---
-export type TableDesignStyle =
-  | "classic_straight_leg"
-  | "modern_slab_leg"
-  | "sculpted_leg"
-  | "minimal_floating"
-  | "cross_trestle";
-
-// --- 3. Marble (Tabletop) ---
+// --- 2. Marble (Tabletop Shape) ---
 export type MarbleShape =
   | "rectangle"
   | "oval"
@@ -21,7 +14,7 @@ export type MarbleShape =
   | "boat"
   | "soft_organic";
 
-// --- 4. Wood (Polish) ---
+// --- 3. Wood (Polish) ---
 export type WoodColor =
   | "natural"
   | "walnut_dark"
@@ -29,7 +22,7 @@ export type WoodColor =
   | "espresso"
   | "charcoal";
 
-// --- 5. Chair Selection ---
+// --- 4. Chair Selection ---
 // Chair ID references the catalog (K-CH-1 through K-CH-16)
 // Leather color applies to any selected chair's upholstery
 
@@ -41,7 +34,7 @@ export type LeatherColor =
   | "white"
   | "olive";
 
-// --- 6. Scene / Environment ---
+// --- 5. Scene / Environment ---
 export type EnvironmentPreset = 
   | "studio" 
   | "apartment" 
@@ -53,15 +46,14 @@ export type EnvironmentPreset =
 export interface ConfigState {
   sizePreset: TableSizePreset;
 
-  tableDesign: {
-    style: TableDesignStyle;
-  };
+  // Table design - references tableCatalog (K-DT-01 through K-DT-55)
+  selectedTableId: string;
 
   marbleShape: {
     shape: MarbleShape;
   };
   
-  // Table top selection - references tableTopCatalog (VR-001 through VR-025)
+  // Table top stone - references tableTopCatalog (VR-001 through VR-025)
   selectedTableTopId: string;
 
   woodMaterial: {
@@ -87,14 +79,14 @@ export interface ConfigState {
   setScene: (partial: Partial<ConfigState["scene"]>) => void;
   setChair: (chairId: string) => void;
   setTableTop: (tableTopId: string) => void;
+  setTable: (tableId: string) => void;
 }
 
 export const useConfigStore = create<ConfigState>((set) => ({
   sizePreset: "6_seater",
   
-  tableDesign: {
-    style: "classic_straight_leg",
-  },
+  // Default to first table in catalog
+  selectedTableId: DEFAULT_TABLE_ID,
 
   marbleShape: {
     shape: "rounded_rectangle",
@@ -125,4 +117,5 @@ export const useConfigStore = create<ConfigState>((set) => ({
   setScene: (partial) => set((state) => ({ ...state, scene: { ...state.scene, ...partial } })),
   setChair: (chairId) => set({ selectedChairId: chairId }),
   setTableTop: (tableTopId) => set({ selectedTableTopId: tableTopId }),
+  setTable: (tableId) => set({ selectedTableId: tableId }),
 }));

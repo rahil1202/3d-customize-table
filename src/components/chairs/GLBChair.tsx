@@ -41,14 +41,88 @@ function GLBChairInner({ definition }: GLBChairProps) {
 
   // Load the GLB model
   const { scene } = useGLTF(definition.modelPath!);
-
-  // Clone the scene to avoid mutation issues
   const clonedScene = scene.clone(true);
 
-  // Apply materials whenever leather or wood colors change
+  // Auto-center and lift to ground, and fix double-chair issues
   useEffect(() => {
     if (clonedScene) {
+      // 1. Analyze and Fix Double Chairs (Clustering Logic)
+      const meshes: THREE.Mesh[] = [];
+      clonedScene.traverse((child) => {
+        if (child instanceof THREE.Mesh) meshes.push(child);
+      });
+
+      if (meshes.length > 0) {
+        // Simple clustering: Start with first mesh, find all connected within 40cm
+        const cluster1 = new Set<THREE.Mesh>([meshes[0]]);
+        let added = true;
+        while (added) {
+          added = false;
+          for (const mesh of meshes) {
+            if (cluster1.has(mesh)) continue;
+
+            // Check distance to any mesh in cluster
+            const meshBox = new THREE.Box3().setFromObject(mesh);
+            const meshCenter = new THREE.Vector3();
+            meshBox.getCenter(meshCenter);
+
+            for (const clusterMesh of Array.from(cluster1)) {
+              const cBox = new THREE.Box3().setFromObject(clusterMesh);
+              const cCenter = new THREE.Vector3();
+              cBox.getCenter(cCenter);
+
+              // If within 40cm, assume part of same chair
+              if (meshCenter.distanceTo(cCenter) < 0.4) {
+                cluster1.add(mesh);
+                added = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // If we have meshes NOT in cluster 1, hide them (assume duplicates)
+        if (cluster1.size < meshes.length) {
+          console.warn(
+            "GLBChair: Detected possible double chair. Hiding extra meshes.",
+          );
+          meshes.forEach((m) => {
+            if (!cluster1.has(m)) {
+              m.visible = false;
+            }
+          });
+        }
+      }
+
+      // 2. Apply materials
       applyChairMaterials(clonedScene, leather, wood);
+
+      // Scale up a bit (User request)
+      clonedScene.scale.set(1.15, 1.15, 1.15);
+
+      // 3. Fix position (Lift to ground) AFTER hiding extras
+      // Re-calculate box for only visible objects
+      const box = new THREE.Box3();
+      box.makeEmpty();
+      clonedScene.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.visible) {
+          box.expandByObject(child);
+        }
+      });
+
+      if (!box.isEmpty()) {
+        const bottomY = box.min.y;
+
+        // Shift scene up so bottom is at 0
+        clonedScene.position.y = -bottomY;
+
+        // Center visible object
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        // We move the scene inverse to the center offset
+        clonedScene.position.x = -center.x;
+        clonedScene.position.z = -center.z;
+      }
     }
   }, [clonedScene, leather, wood]);
 

@@ -38,6 +38,8 @@ import { ChairSelector } from "@/components/ChairSelector";
 import { getChairById } from "@/config/chairCatalog";
 import { TableTopSelector } from "@/components/TableTopSelector";
 import { getTableTopById } from "@/config/tableTopCatalog";
+import { TableSelector } from "@/components/TableSelector";
+import { getTableById } from "@/config/tableCatalog";
 
 // --- Types ---
 export type FocusPart =
@@ -279,24 +281,12 @@ export function ConfigPanel({
               partId="table-design"
             />
             <PopoverContent
-              className="w-80 rounded-2xl p-5 shadow-2xl ring-1 ring-black/5"
+              className="w-[580px] rounded-2xl p-5 shadow-2xl ring-1 ring-black/5"
               side="top"
               sideOffset={20}
             >
-              <SectionHeader icon={Layers} title="Table Base" />
-              <CompactRadioGroup
-                value={store.tableDesign.style}
-                onChange={(style) =>
-                  setConfig({ tableDesign: { ...store.tableDesign, style } })
-                }
-                options={[
-                  { value: "classic_straight_leg", label: "Classic Straight" },
-                  { value: "modern_slab_leg", label: "Modern Slab" },
-                  { value: "sculpted_leg", label: "Sculpted" },
-                  { value: "minimal_floating", label: "Minimal Float" },
-                  { value: "cross_trestle", label: "Cross Trestle" },
-                ]}
-              />
+              <SectionHeader icon={Layers} title="Table Base Design" />
+              <TableSelector />
             </PopoverContent>
           </Popover>
 
