@@ -3,7 +3,7 @@
  * 
  * Each table has:
  * - Individual thumbnail photo from src/assets/table-stand/photos/
- * - GLB model from src/assets/table-stand/models/
+ * - GLB model imported as a module (Vite will handle the path)
  * - Procedural fallback style (for future use if GLB fails)
  */
 
@@ -11,6 +11,11 @@
 import tablePhoto1 from '@/assets/table-stand/photos/KT-1.jpg';
 import tablePhoto2 from '@/assets/table-stand/photos/KT-2.jpg';
 // import tablePhoto3 from '@/assets/table-stand/photos/KT-3.jpg';
+
+// Import GLB models as modules so Vite can process them correctly
+import tableModel1 from '@/assets/table-stand/models/KT-1.glb?url';
+import tableModel2 from '@/assets/table-stand/models/KT-2.glb?url';
+// import tableModel3 from '@/assets/table-stand/models/KT-3.glb?url';
 
 // Table base style categories
 export type TableBaseStyle = 
@@ -45,7 +50,7 @@ export const TABLE_CATALOG: TableDefinition[] = [
     name: 'Modern Geometric Base',
     description: 'Contemporary table with geometric frame design',
     thumbnail: tablePhoto1,
-    modelPath: 'src/assets/table-stand/models/KT-1.glb',
+    modelPath: tableModel1,
     baseStyle: 'geometric',
     legCount: 2,
   },
@@ -54,7 +59,7 @@ export const TABLE_CATALOG: TableDefinition[] = [
     name: 'Classic V-Frame',
     description: 'Elegant V-shaped wooden frame',
     thumbnail: tablePhoto2,
-    modelPath: 'src/assets/table-stand/models/KT-2.glb',
+    modelPath: tableModel2,
     baseStyle: 'v_shaped',
     legCount: 2,
   },
@@ -63,7 +68,7 @@ export const TABLE_CATALOG: TableDefinition[] = [
   //   name: 'Sculptural Base',
   //   description: 'Artistic sculptural table base',
   //   thumbnail: tablePhoto3,
-  //   modelPath: 'src/assets/table-stand/models/KT-3.glb',
+  //   modelPath: tableModel3,
   //   baseStyle: 'sculptural',
   //   legCount: 2,
   // },

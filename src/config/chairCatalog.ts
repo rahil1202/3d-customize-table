@@ -3,7 +3,7 @@
  * 
  * Each chair has:
  * - Individual thumbnail photo from src/assets/chairs/photos/
- * - GLB model from public/models/chairs/
+ * - GLB model imported as a module (Vite will handle the path)
  * - Procedural fallback style (for future use if GLB fails)
  */
 
@@ -16,6 +16,16 @@ import chairPhoto5 from '@/assets/chairs/photos/K-CH-5.jpg';
 import chairPhoto6 from '@/assets/chairs/photos/K-CH-6.jpg';
 import chairPhoto7 from '@/assets/chairs/photos/K-CH-7.jpg';
 import chairPhoto8 from '@/assets/chairs/photos/K-CH-8.jpg';
+
+// Import GLB models as modules so Vite can process them correctly
+import chairModel1 from '@/assets/chairs/models/K-CH-1.glb?url';
+import chairModel2 from '@/assets/chairs/models/K-CH-2.glb?url';
+import chairModel3 from '@/assets/chairs/models/K-CH-3.glb?url';
+import chairModel4 from '@/assets/chairs/models/K-CH-4.glb?url';
+import chairModel5 from '@/assets/chairs/models/K-CH-5.glb?url';
+import chairModel6 from '@/assets/chairs/models/K-CH-6.glb?url';
+import chairModel7 from '@/assets/chairs/models/K-CH-7.glb?url';
+import chairModel8 from '@/assets/chairs/models/K-CH-8.glb?url';
 
 // Procedural chair styles (fallback if GLB fails to load)
 export type ProceduralChairStyle =
@@ -46,7 +56,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
     name: 'Milano Round',
     description: 'Contemporary round-back chair with elegant upholstery',
     thumbnail: chairPhoto1,
-    modelPath: 'src/assets/chairs/models/K-CH-1.glb',
+    modelPath: chairModel1,
     proceduralStyle: 'round_back',
   },
   // {
@@ -54,7 +64,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Heritage Wing',
   //   description: 'Classic wing chair with wooden accents',
   //   thumbnail: chairPhoto2,
-  //   modelPath: '/models/chairs/K-CH-2.glb',
+  //   modelPath: chairModel2,
   //   proceduralStyle: 'wing_chair',
   // },
   // {
@@ -62,7 +72,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Serenity Teal',
   //   description: 'Elegant round-back in calming teal',
   //   thumbnail: chairPhoto3,
-  //   modelPath: '/models/chairs/K-CH-3.glb',
+  //   modelPath: chairModel3,
   //   proceduralStyle: 'round_back',
   // },
   // {
@@ -70,7 +80,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Windsor Accent',
   //   description: 'Traditional accent chair with exposed wood frame',
   //   thumbnail: chairPhoto4,
-  //   modelPath: '/models/chairs/K-CH-4.glb',
+  //   modelPath: chairModel4,
   //   proceduralStyle: 'wing_chair',
   // },
   // {
@@ -78,7 +88,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Artisan Circle',
   //   description: 'Artistic circular back with modern aesthetic',
   //   thumbnail: chairPhoto5,
-  //   modelPath: '/models/chairs/K-CH-5.glb',
+  //   modelPath: chairModel5,
   //   proceduralStyle: 'artistic_round',
   // },
   // {
@@ -86,7 +96,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Diamond Quilted',
   //   description: 'Luxurious diamond quilted upholstery',
   //   thumbnail: chairPhoto6,
-  //   modelPath: '/models/chairs/K-CH-6.glb',
+  //   modelPath: chairModel6,
   //   proceduralStyle: 'quilted',
   // },
   // {
@@ -94,7 +104,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
   //   name: 'Nordic Frame',
   //   description: 'Scandinavian open-frame design',
   //   thumbnail: chairPhoto7,
-  //   modelPath: '/models/chairs/K-CH-7.glb',
+  //   modelPath: chairModel7,
   //   proceduralStyle: 'open_frame',
   // },
   {
@@ -102,7 +112,7 @@ export const CHAIR_CATALOG: ChairDefinition[] = [
     name: 'Classic Dining',
     description: 'Timeless dining chair with clean lines',
     thumbnail: chairPhoto8,
-    modelPath: 'src/assets/chairs/models/K-CH-8.glb',
+    modelPath: chairModel8,
     proceduralStyle: 'classic',
   },
 ];
