@@ -91,18 +91,16 @@ export function TableSelector({ onSelect }: TableSelectorProps) {
                     : "border-muted hover:border-primary/40",
                 )}
               >
-                {/* Table image - show cropped section based on thumbnailIndex */}
+                {/* Table image - show full photo */}
                 <div className="absolute inset-0 bg-muted/30 overflow-hidden">
                   {table.thumbnail ? (
-                    <div
-                      className="w-full h-full"
-                      style={{
-                        backgroundImage: `url(${table.thumbnail})`,
-                        backgroundSize: "100% 500%",
-                        backgroundPosition: `center ${table.thumbnailIndex * 20}%`,
-                        transition: "transform 0.3s",
-                        transform: isHovered ? "scale(1.1)" : "scale(1)",
-                      }}
+                    <img
+                      src={table.thumbnail}
+                      alt={table.name}
+                      className={cn(
+                        "w-full h-full object-cover transition-transform duration-300",
+                        isHovered && "scale-110",
+                      )}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-muted">

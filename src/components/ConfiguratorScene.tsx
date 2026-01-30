@@ -25,38 +25,59 @@ export type FocusPart =
 function ChairsLayout() {
   const { length, width } = useTableDimensions();
   const sizePreset = useConfigStore((s) => s.sizePreset);
-  const endOffset = length / 2 + 0.35;
-  const sideOffset = width / 2 + 0.35;
+  // Increased clearance from 0.35 to 0.5 to prevent chairs from overlapping with table
+  const endOffset = length / 2 + 0.5;
+  const sideOffset = width / 2 + 0.5;
 
   const chairs = useMemo(() => {
     const list: {
       pos: [number, number, number];
       rot: [number, number, number];
     }[] = [];
+
+    // Always place 2 chairs at the ends of the table
     list.push({ pos: [-endOffset, 0, 0], rot: [0, Math.PI / 2, 0] });
     list.push({ pos: [endOffset, 0, 0], rot: [0, -Math.PI / 2, 0] });
 
     if (sizePreset === "4_seater") {
+      // 4-seater: 2 end + 2 side (one on each long side, centered)
       list.push({ pos: [0, 0, sideOffset], rot: [0, Math.PI, 0] });
       list.push({ pos: [0, 0, -sideOffset], rot: [0, 0, 0] });
     } else if (sizePreset === "6_seater") {
-      [-0.35, 0.35].forEach((x) => {
+      // 6-seater: 2 end + 4 side (two on each long side)
+      const spacing6 = length * 0.25; // 25% of table length for better spacing
+      [-spacing6, spacing6].forEach((x) => {
         list.push({ pos: [x, 0, sideOffset], rot: [0, Math.PI, 0] });
         list.push({ pos: [x, 0, -sideOffset], rot: [0, 0, 0] });
       });
     } else {
-      [-0.6, 0, 0.6].forEach((x) => {
+      // 8-seater: 2 end + 6 side (three on each long side)
+      const spacing8 = length * 0.32; // 32% of table length for even distribution
+      [-spacing8, 0, spacing8].forEach((x) => {
         list.push({ pos: [x, 0, sideOffset], rot: [0, Math.PI, 0] });
         list.push({ pos: [x, 0, -sideOffset], rot: [0, 0, 0] });
       });
     }
+
+    console.log(
+      `[ChairsLayout] sizePreset: ${sizePreset}, chair count: ${list.length}`,
+    );
+    console.log(
+      `[ChairsLayout] Chair positions:`,
+      list.map((c, i) => ({ index: i, pos: c.pos })),
+    );
+
     return list;
-  }, [sizePreset, endOffset, sideOffset]);
+  }, [sizePreset, endOffset, sideOffset, length]);
 
   return (
     <group>
       {chairs.map((c, i) => (
-        <Chair key={i} position={c.pos} rotation={c.rot} />
+        <Chair
+          key={`chair-${c.pos[0].toFixed(2)}-${c.pos[2].toFixed(2)}`}
+          position={c.pos}
+          rotation={c.rot}
+        />
       ))}
     </group>
   );

@@ -12,6 +12,7 @@ import {
   useMetalMaterial,
   applyTableMaterials,
 } from "./TableMaterials";
+import { TableTop } from "./TableTop";
 
 interface GLBTableProps {
   definition: TableDefinition;
@@ -59,6 +60,7 @@ function GLBTableInner({ definition, position }: GLBTableProps) {
   return (
     <group ref={groupRef} position={position}>
       <primitive object={clonedScene} />
+      <TableTop />
     </group>
   );
 }

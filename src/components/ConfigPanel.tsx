@@ -244,7 +244,7 @@ export function ConfigPanel({
   return (
     <>
       {/* Floating Top Right Controls */}
-      <div className="fixed top-6 right-6 z-40 flex flex-col items-end gap-3">
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
         {/* Reset View Button */}
 
         {/* Estimate Card */}
@@ -270,7 +270,7 @@ export function ConfigPanel({
       </div>
 
       {/* Bottom Floating Bar */}
-      <div className="fixed bottom-6 left-4 right-4 z-50 mx-auto flex max-w-4xl justify-center rounded-3xl border border-white/20 bg-background/80 px-2 pb-1 pt-1 shadow-2xl backdrop-blur-2xl supports-[backdrop-filter]:bg-background/60">
+      <div className="fixed bottom-2 left-4 right-4 z-50 mx-auto flex max-w-4xl justify-center rounded-3xl border border-white/20 bg-background/80 px-2 pb-1 pt-1 shadow-2xl backdrop-blur-2xl supports-[backdrop-filter]:bg-background/60">
         <div className="flex w-full items-center justify-between overflow-x-auto no-scrollbar sm:justify-center sm:gap-2">
           {/* 1. TABLE DESIGN */}
           <Popover onOpenChange={(open) => !open && onFocusPartChange(null)}>
